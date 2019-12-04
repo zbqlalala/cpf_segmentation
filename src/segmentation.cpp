@@ -25,18 +25,9 @@
 * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 * POSSIBILITY OF SUCH DAMAGE.
-*
-*  Created on: 11.07.2016
-*
-*      Authors:
-*         Trung T. Pham <trung.pham@adelaide.edu.au>
-*         Markus Eich <markus.eich@qut.edu.au>
-*
-*  Last update: 5 Nov 2016
 */
 
-#include <segmentation/segmentation.hpp>
-
+#include "segmentation.h"
 using namespace APC;
 
 Segmentation::Segmentation(){}
@@ -54,7 +45,7 @@ void Segmentation::doSegmentation(){
   super.setSpatialImportance (config_.spatial_importance);
   super.setNormalImportance (config_.normal_importance);
   std::map<uint32_t, pcl::Supervoxel<PointT>::Ptr> supervoxel_clusters;
-
+//该单映射容器以标签为键值存储所有超体素
   super.extract (supervoxel_clusters);
 
   if (config_.use_supervoxel_refinement)
@@ -94,7 +85,7 @@ void Segmentation::doSegmentation(){
       double theta = std::atan(plane_par(1)/plane_par(0))*180/M_PI;
       double phi = std::acos(plane_par(2))*180/M_PI;
       double rho = plane_par(3);
-      if (isnan(theta) | isnan(phi) | isnan(rho)) continue;
+      if (std::isnan(theta) | std::isnan(phi) | std::isnan(rho)) continue;
       hough_par(0) = theta;
       hough_par(1) = phi;
       hough_par(2) = rho;
@@ -135,7 +126,7 @@ void Segmentation::doSegmentation(){
       double phi = std::acos(plane_par(2))*180/M_PI;
       double rho = plane_par(3);
 
-      if (isnan(theta) | isnan(phi) | isnan(rho)) continue;
+      if (std::isnan(theta) | std::isnan(phi) | std::isnan(rho)) continue;
 
       planes_coeffs.push_back(plane_par);
       hough_par(0) = theta;
@@ -163,6 +154,7 @@ void Segmentation::doSegmentation(){
   }
   uint32_t num_super_voxels = sv_centroid_normal_cloud->size();
   std::vector<int> sv_labels(num_super_voxels,0);
+  int good_planes_count = 0;
   uint32_t outlier_label = 0;
   // Remove duplicated planes
   if (planes_coeffs.size() > 0){
@@ -204,7 +196,7 @@ void Segmentation::doSegmentation(){
       delete [] accumulator[i];
     }
     delete [] accumulator;
-
+    std::cout << "Number of planes remained after hough-based filtering = " << plane_candidates.size() << "\n";
     // Compute plane unary costs
     float min_num_supervoxel_per_plane = config_.min_plane_area/(config_.seed_resolution*config_.seed_resolution/4/M_PI);
     std::vector<Eigen::Vector4f> good_planes;
@@ -435,6 +427,7 @@ void Segmentation::doSegmentation(){
       }
       bool convex = isConvex(p1, n1, p2, n2, config_.seed_resolution, config_.voxel_resolution);
       if (convex == true) add_edge(from,to,G);
+      //sv_centroid_normal_cloud
     }
 
     std::vector<uint32_t> component(num_vertices(G));
@@ -475,14 +468,22 @@ void Segmentation::doSegmentation(){
   }
   typename pcl::PointCloud<pcl::PointXYZL>::iterator point_itr = (*segmented_cloud_ptr_).begin();
   uint32_t zero_label = 0;
+    uint32_t count = 0;
   for (; point_itr != (*segmented_cloud_ptr_).end(); ++point_itr)
   {
     if (point_itr->label == 0){
       zero_label++;
+      count++;
+
     }else{
       point_itr->label = label_to_seg_map[point_itr->label];
+      count++;
     }
+
   }
+  cout <<count<<endl;
+
+
   printf("All Time taken: %.2fms\n", (double)(clock() - sv_start)/(CLOCKS_PER_SEC/1000));
 
 
